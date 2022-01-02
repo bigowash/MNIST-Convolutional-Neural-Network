@@ -1,7 +1,5 @@
 package MNIST_Dataset.Files;
 
-import ML.Constants;
-
 import java.util.Iterator;
 import java.util.List;
 

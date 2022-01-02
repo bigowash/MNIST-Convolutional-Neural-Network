@@ -11,4 +11,15 @@ This allowed me to manipulate the matricies directly involved in the network as 
 ## Set up
 
 The entire algorithm is controlled from the Main function in MNIST_Dataset/Files/Main.java. First the set and network are initialized:
-* Set : loading of all the 
+* set : loading of all the images (either TRAINING or TESTING)
+
+`MNISTSet set = MNIST.load(TRAINING);`
+* network : contains the hidden layers 
+
+`MNISTNetwork network = new MNISTNetwork(784, 100, 50, 10);`
+
+Most of the parameters can be changed with the constants file.
+
+
+## Training of Network
+

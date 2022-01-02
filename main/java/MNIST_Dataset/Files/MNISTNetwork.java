@@ -4,6 +4,8 @@ import java.util.Collections;
 import java.util.Random;
 import java.util.stream.IntStream;
 
+import static MNIST_Dataset.Files.Constants.*;
+
 public class MNISTNetwork {
 
     private double[][] output;
@@ -44,19 +46,24 @@ public class MNISTNetwork {
         }
     }
 
-    public void Train(MNISTSet set, int epochs, int loops, int batch_size){
-        for (int e = 0; e < epochs; e++) {
+    public void Train(MNISTSet set){
+        for (int e = 0; e < EPOCHS; e++) {
             // create a batch from set
-            for (int i = batch_size-1; i < set.size(); i += batch_size) {
+            for (int i = BATCH_SIZE-1; i < set.size(); i += BATCH_SIZE) {
                 // create array of image indexes within batch interval
-                int[] batch = IntStream.range(i-batch_size+1, i+1).toArray();
+                int[] batch = IntStream.range(i-BATCH_SIZE+1, i+1).toArray();
                 // iterate through each batch, loop number of times
-                for (int loop = 0; loop < loops; loop++) {
+                for (int loop = 0; loop < LOOPS; loop++) {
                     batch = shuffleArray(batch);
                     // individually go through each image in the batch
-                    for (int index = 0; index < batch_size; index++) {
+                    for (int index = 0; index < BATCH_SIZE; index++) {
                         MNISTImage image = set.getImage(index);
                         // train the network with the image
+                        double[][][] filters = {
+                                {{0.0,0.0},{0.0,0.0},{0.0,0.0}},
+                                {{0.0,0.0},{0.0,0.0},{0.0,0.0}},
+                                {{0.0,0.0},{0.0,0.0},{0.0,0.0}}
+                        };
                         convolve(image, filters);
                     }
                 }
@@ -65,11 +72,13 @@ public class MNISTNetwork {
     }
 
     // different sized filters? or no
-    private double convolve(MNISTImage image, double[][][] filters){
+    private double[][][] convolve(MNISTImage image, double[][][] filters){
+        double[][][] output = new double[filters.length][][];
         for (int i = 0; i < filters.length; i++) {
             double[][] filter = filters[i];
-
+            output[i] = image.convolve(filter);
         }
+        return output;
     }
 
     public int[] shuffleArray(int[] array) {
@@ -84,3 +93,4 @@ public class MNISTNetwork {
     }
 
 }
+
