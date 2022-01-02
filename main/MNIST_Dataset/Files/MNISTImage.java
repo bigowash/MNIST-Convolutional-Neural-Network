@@ -57,6 +57,16 @@ public class MNISTImage {
         return image;
     }
 
+    public double[][] imageDouble(){
+        double[][] matrix = new double[28][28];
+        for (int row = 0; row < 28; row++) {
+            for (int col = 0; col < 28; col++) {
+                matrix[row][col] = image[row][col];
+            }
+        }
+        return matrix;
+    }
+
     public enum Color {
         WHITE(0),
         GREY(127),
@@ -74,15 +84,16 @@ public class MNISTImage {
         // convolve an image, return
         int kHeight = filter.length;
         int kWidth = filter[0].length;
-        System.out.println(STRIDE);
-        int newRow = subVectorSize(28+2*PADDING,kHeight,STRIDE);
-        int newCol = subVectorSize(28+2*PADDING,kWidth,STRIDE);
+
+//        System.out.println(STRIDE);
+        int newRow = subVectorSize(28+2*PADDING,kHeight,CONVSTRIDE);
+        int newCol = subVectorSize(28+2*PADDING,kWidth,CONVSTRIDE);
 
         double[][] newMatrix = new double[newCol][newRow];
 
         for (int row = 0; row < newRow ; row++) {
             for (int col = 0; col < newCol; col++) {
-                double[][] subMatrix = subMatrixTop(row*STRIDE, col*STRIDE, kWidth, kHeight);
+                double[][] subMatrix = subMatrixTop(row*CONVSTRIDE, col*CONVSTRIDE, kWidth, kHeight);
                 // need to apply the kernel to the subMatrix
                 newMatrix[row][col] = applyKernel(subMatrix, filter);
             }
@@ -134,36 +145,5 @@ public class MNISTImage {
         }
         return count;
     }
-
-//    public int[][] convolution(int kWidth, int kHeight, int padding, int stride, int bias, int outputChannels, int[] weights){
-//        int newRow = subVectorSize(28,kHeight,stride);
-//        int newCol = subVectorSize(28,kWidth,stride);
-//
-//        int[][] newMatrix = new int[newCol][newRow];
-//
-//        for (int row = 0; row < newRow ; row++) {
-//            for (int col = 0; col < newCol; col++) {
-//                // The fact that we are using subMatrixTop means that we will not have padding on the top or left side of the image
-//                int[][] subMatrix = subMatrixTop(row*stride, col*stride, kWidth, kHeight, Color.WHITE);
-//                int[] subVector = matrixToVector(subMatrix);
-//                newMatrix[row+col] = subVector;
-//            }
-//        }
-//        // do things to newMatrix
-//        // Transpose so that it looks like: https://medium.com/@_init_/an-illustrated-explanation-of-performing-2d-convolutions-using-matrix-multiplications-1e8de8cd2544
-////        int[][] newMatrixTransposed = transpose(newMatrix);
-//
-//        // depending on the form of the weights (if vector or matrix)
-//        // current implementation assumes vector
-//        // after weight have been considered
-////        int[] weightedVector = weighting(weights, newMatrixTransposed);
-//        int[] weightedVector = weighting(weights, newMatrix);
-//
-//        int height = (28-kHeight+2*padding)/stride+1;
-//        int width = (28-kWidth+2*padding)/stride+1;
-//
-//        int[][] weightedMatrix = vectorToMatrix(height, width, weightedVector);
-//        return weightedMatrix;
-//    }
 }
 
