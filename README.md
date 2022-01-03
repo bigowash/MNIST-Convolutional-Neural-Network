@@ -28,7 +28,8 @@ The entire algorithm is controlled from the Main function in MNIST_Dataset/Files
 * network : contains the hidden layers 
 
 `MNISTNetwork network = new MNISTNetwork(784, 100, 50, 10);`
-
+The first layers correspond to the number of convolutive filters are used per stage, and how many stages there are.
+Then the number of fully connected neurons are passed as arguments with the last entry representing the number of dense layers.
 Most of the parameters can be changed with the constants file.
 
 

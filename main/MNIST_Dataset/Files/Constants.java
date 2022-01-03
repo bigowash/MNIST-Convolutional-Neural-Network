@@ -11,7 +11,7 @@ public class Constants {
 
     final static double LEARNINGRATE = 0.3;
     final static int PADDING = 1;
-    final static int CONVSTRIDE = 1;
+    final static int CONVSTRIDE = 2;
     final static double PADDINGVALUE = 0.0;
 
     final static int KERNELSIZE = 3; // same value for all kernals regardless of conv layer

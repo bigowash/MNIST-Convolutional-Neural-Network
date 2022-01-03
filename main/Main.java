@@ -8,8 +8,10 @@ public class Main {
     // main program function
     public static void main(String[] args) {
         MNISTSet set = MNIST.load(TRAINING);
-//        MNISTNetwork network = new MNISTNetwork(784, 100, 50, 10);
-        MNISTNetwork network = new MNISTNetwork(10, 10, 300);
+//        MNISTSet set = MNIST.load(TESTING);
+
+//        MNISTNetwork network = new MNISTNetwork(10, 10, 300);
+        MNISTNetwork network = new MNISTNetwork(50, 30, 100, 50, 2);
         MNISTImage image = set.getImage(1);
 //        System.out.println(image.getLabel());
 //        System.out.println(image.image());

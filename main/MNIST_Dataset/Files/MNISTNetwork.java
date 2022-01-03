@@ -11,31 +11,55 @@ public class MNISTNetwork {
     public final int[] NETWORK_SIZES;
 
     private double[][][][] FILTERS;
-    private double[] NEURONS;
+    private double[][][] NEURONS;
+    private double[][] BIAS;
 
-    public final int NUM_LAYERS;
-    public final int NUM_NEURONS;
+    public final int NUM_CONV_LAYERS;
+
+    public final int NUM_DENSE_LAYERS;
 
     public MNISTNetwork(int... NETWORK_SIZES){
 
         this.NETWORK_SIZES = NETWORK_SIZES;
-        this.NUM_LAYERS = NETWORK_SIZES.length - 1;
-        this.NUM_NEURONS = NETWORK_SIZES[NUM_LAYERS];
+        this.NUM_DENSE_LAYERS = NETWORK_SIZES[NETWORK_SIZES.length-1];
+        this.NUM_CONV_LAYERS = NETWORK_SIZES.length - NUM_DENSE_LAYERS - 1;
+        this.BIAS = new double[NUM_DENSE_LAYERS+1][];
 
-        this.FILTERS = new double[NUM_LAYERS][][][];
+        // initializing weight matricies
+        this.FILTERS = new double[NUM_CONV_LAYERS][][][];
+        this.NEURONS = new double[NUM_DENSE_LAYERS+1][][];
 
-        for (int layer = 0; layer < NUM_LAYERS; layer++) {
+        // conv filters
+        for (int layer = 0; layer < NUM_CONV_LAYERS; layer++) {
             this.FILTERS[layer] = new double[NETWORK_SIZES[layer]][][];
             for (int filter = 0; filter < NETWORK_SIZES[layer]; filter++) {
-                this.FILTERS[layer][filter] = new double[KERNELSIZE][];
-                for (int kernal_row = 0; kernal_row < KERNELSIZE; kernal_row++) {
-                    this.FILTERS[layer][filter][kernal_row] = MNISTNetworkTools.createRandomArray(KERNELSIZE, KERNAL_MIN_VAL, KERNAL_MAX_VAL);
-                }
+                this.FILTERS[layer][filter] = MNISTNetworkTools.createRandomArray(KERNELSIZE, KERNELSIZE, KERNAL_MIN_VAL, KERNAL_MAX_VAL);
             }
         }
 
-        this.NEURONS = new double[NUM_NEURONS];
-        this.NEURONS = MNISTNetworkTools.createRandomArray(NUM_NEURONS, NEURON_MIN_VAL, NEURON_MAX_VAL);
+        // dense layers
+        for (int layer = 0; layer < NUM_DENSE_LAYERS+1; layer++) {
+            if (layer == 0){
+                // get the number of layers from the flattened layers.
+                int outputSize = 28;
+                for (int i = 0; i < NUM_CONV_LAYERS; i++) {
+                    outputSize = (outputSize + 2*PADDING - KERNELSIZE) / CONVSTRIDE + 1;
+                    outputSize = (outputSize - POOLSIZE) / POOLSTRIDE + 1;
+                }
+                for (int i = 0; i < NUM_CONV_LAYERS; i++) {
+                    outputSize *= NETWORK_SIZES[i];
+                }
+                this.NEURONS[layer] = MNISTNetworkTools.createRandomArray(NETWORK_SIZES[NUM_CONV_LAYERS+layer], outputSize, NEURON_MIN_VAL, NEURON_MAX_VAL);
+                this.BIAS[layer] = MNISTNetworkTools.createRandomArray(NETWORK_SIZES[NUM_CONV_LAYERS+layer], NEURON_MIN_VAL, NEURON_MAX_VAL);
+            } else if (layer == NUM_DENSE_LAYERS) {
+                // matrix needs to map to the desired output (vector size 10)
+                this.NEURONS[layer] = MNISTNetworkTools.createRandomArray(10, NETWORK_SIZES[NUM_CONV_LAYERS+layer-1], NEURON_MIN_VAL, NEURON_MAX_VAL);
+                this.BIAS[layer] = MNISTNetworkTools.createRandomArray(10, NEURON_MIN_VAL, NEURON_MAX_VAL);
+            } else {
+                this.BIAS[layer] = MNISTNetworkTools.createRandomArray(NETWORK_SIZES[NUM_CONV_LAYERS+layer], NEURON_MIN_VAL, NEURON_MAX_VAL);
+                this.NEURONS[layer] = MNISTNetworkTools.createRandomArray(NETWORK_SIZES[NUM_CONV_LAYERS+layer],NETWORK_SIZES[NUM_CONV_LAYERS+layer-1], NEURON_MIN_VAL, NEURON_MAX_VAL);
+            }
+        }
     }
 
 //    public MNISTNetwork(int... NETWORK_LAYER_SIZES) {
@@ -75,12 +99,12 @@ public class MNISTNetwork {
                     batch = shuffleArray(batch);
                     // individually go through each image in the batch
                     for (int index = 0; index < BATCH_SIZE; index++) {
-                        MNISTImage image = set.getImage(index);
+                        MNISTImage image = set.getImage(batch[index]);
 
                         double[][][] poolOutput = new double[FILTERS[0].length][][];
 
                         // go through convolution stages with the image
-                        for (int layer = 0; layer < NUM_LAYERS; layer++) {
+                        for (int layer = 0; layer < NUM_CONV_LAYERS; layer++) {
                             double[][][] convOutput;
                             if (layer == 0){
                                 // convolution part
@@ -93,20 +117,80 @@ public class MNISTNetwork {
                         }
 
                         // go to the fully connected layer
-                        // map double[][][] to double[]
                         double[] neurons = flatten(poolOutput);
+
+                        for (int layer = 0; layer < NUM_DENSE_LAYERS+1; layer++) {
+                            neurons = fullyconnected(neurons, NEURONS[layer], BIAS[layer]);
+                        }
+                        neurons = sigmoid(neurons);
+                        // or maybe find a way of saying
+                        /*
+                            Say the max is worth 12321333 (big number) for digit 0
+                            maybe check the loss function by saying ok the goal should have been
+                            [12321333, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+                            instead of making neurons [1,0,0,0,0,0,0,0]
+                        */
+
+//                        int result = maxValue(neurons);
+
+
                     }
                 }
             }
         }
     }
 
+    private int maxValue(double[] vector){
+        double max = 0;
+        int val = 0;
+        for (int i = 0; i < vector.length; i++) {
+            if (max < vector[i]){
+                max = vector[i];
+                val = i;
+            }
+        }
+        return val;
+    }
+
+    private double[] fullyconnected(double[] vector, double[][] matrix, double[] bias){
+
+        // want output to be length 10
+        double[] output = new double[matrix.length];
+
+        // matrix dimensions should be output (i/row) x input (j/col)
+        if (matrix[0].length == vector.length){
+            boolean good = true;
+        }
+
+        for (int neuron = 0; neuron < matrix.length; neuron++) {
+            double sum = bias[neuron];
+            for (int weight = 0; weight < vector.length; weight++) {
+                sum += vector[weight]*matrix[neuron][weight];
+            }
+
+            output[neuron] = reLU(sum);
+        }
+        return output;
+    }
+
+    private double reLU(double val){
+        if (val < 0) {return 0;}
+        return val;
+    }
+
+    private double[] sigmoid(double[] vector) {
+        for (int i = 0; i < vector.length; i++) {
+            vector[i] = 1d / ( 1 + Math.exp(-vector[i]));
+        }
+        return vector;
+    }
+
     private double[] flatten(double[][][] matrix){
         double[] vector = new double[matrix.length*matrix[0].length*matrix[0][0].length];
         for (int layer = 0; layer < matrix.length; layer++) {
-            for (int row = 0; row < matrix[0].length; row++) {
-                for (int col = 0; col < matrix[0][0].length; col++) {
-                    vector[layer*row*col] = matrix[layer][row][col];
+            for (int row = 0; row < matrix[layer].length; row++) {
+                for (int col = 0; col < matrix[layer][row].length; col++) {
+                    vector[layer*matrix[layer].length+row*matrix[layer][row].length+col] = matrix[layer][row][col];
                 }
             }
         }
@@ -127,7 +211,7 @@ public class MNISTNetwork {
         double[][][] output = new double[matrix.length* filters.length][][];
         for (int filter = 0; filter < filters.length; filter++) {
             for (int layer = 0; layer < matrix.length; layer++) {
-                output[filter*layer+layer] = convolve(matrix[layer], filters[filter]);
+                output[filter*matrix.length+layer] = convolve(matrix[layer], filters[filter]);
             }
         }
         return output;
@@ -137,8 +221,8 @@ public class MNISTNetwork {
         int kHeight = filter.length;
         int kWidth = filter[0].length;
 
-        int newRow = subVectorSize(28+2*PADDING,kHeight,CONVSTRIDE);
-        int newCol = subVectorSize(28+2*PADDING,kWidth,CONVSTRIDE);
+        int newRow = subVectorSize(matrix.length+2*PADDING,kHeight,CONVSTRIDE);
+        int newCol = subVectorSize(matrix.length+2*PADDING,kWidth,CONVSTRIDE);
 
         double[][] newMatrix = new double[newCol][newRow];
 
@@ -210,14 +294,17 @@ public class MNISTNetwork {
                         }
                     }
                     if (MAX_POOL){
-                        val = meanPoolSub(subMatrix);
-                    } else {
                         val = maxPoolSub(subMatrix);
+                    } else {
+                        val = meanPoolSub(subMatrix);
                     }
                     newMatrix[row][col] = val;
                 }
             }
             output[filtered] = newMatrix;
+            if (filtered == 51){
+                int a = 0;
+            }
         }
         return output;
     }
