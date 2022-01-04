@@ -11,14 +11,13 @@ public class Main {
 //        MNISTSet set = MNIST.load(TESTING);
 
 //        MNISTNetwork network = new MNISTNetwork(10, 10, 300);
-        MNISTNetwork network = new MNISTNetwork(50, 30, 100, 50, 2);
+        MNISTNetwork network = new MNISTNetwork(10, 10, 11, 1);
         MNISTImage image = set.getImage(1);
 //        System.out.println(image.getLabel());
 //        System.out.println(image.image());
 
         //train
         network.Train(set);
-
         //test
 //        double accuracy = set.Test(network);
 

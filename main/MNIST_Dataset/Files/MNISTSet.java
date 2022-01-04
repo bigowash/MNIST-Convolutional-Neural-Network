@@ -59,9 +59,4 @@ public class MNISTSet implements Iterable<MNISTImage>{
 
         public static final List<MNISTTags> ALL = List.of(values());
     }
-
-//    public double Test(MNISTNetwork network){
-//
-//    }
-
 }

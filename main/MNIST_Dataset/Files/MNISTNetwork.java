@@ -1,6 +1,5 @@
 package MNIST_Dataset.Files;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Random;
 import java.util.stream.IntStream;
 
@@ -10,13 +9,20 @@ public class MNISTNetwork {
 
     public final int[] NETWORK_SIZES;
 
-    private double[][][][] FILTERS;
-    private double[][][] NEURONS;
-    private double[][] BIAS;
+    public double[][][][] FILTERS;
+    public double[][][] NEURONS;
+    public double[][] BIAS;
+
+    public double[][] NEURONS_VALUE;
+
+    public double[][] BIAS_CHANGE;
+    public double[][][] NEURONS_CHANGE;
+    public double[][][][] FILTERS_CHANGE;
 
     public final int NUM_CONV_LAYERS;
-
     public final int NUM_DENSE_LAYERS;
+
+    public int[] CONV_OUTPUT_DIMENSIONS;
 
     public MNISTNetwork(int... NETWORK_SIZES){
 
@@ -29,9 +35,18 @@ public class MNISTNetwork {
         this.FILTERS = new double[NUM_CONV_LAYERS][][][];
         this.NEURONS = new double[NUM_DENSE_LAYERS+1][][];
 
+        // init values of neurons NOT WEIGHTS
+        this.NEURONS_VALUE = new double[NUM_DENSE_LAYERS+1][];
+
+        // intiializing changing of weight matricies
+        this.FILTERS_CHANGE = new double[NUM_CONV_LAYERS][][][];
+        this.NEURONS_CHANGE = new double[NUM_DENSE_LAYERS+1][][];
+        this.BIAS_CHANGE = new double[NUM_DENSE_LAYERS+1][];
+
         // conv filters
         for (int layer = 0; layer < NUM_CONV_LAYERS; layer++) {
             this.FILTERS[layer] = new double[NETWORK_SIZES[layer]][][];
+            this.FILTERS_CHANGE[layer] = new double[NETWORK_SIZES[layer]][KERNELSIZE][KERNELSIZE];
             for (int filter = 0; filter < NETWORK_SIZES[layer]; filter++) {
                 this.FILTERS[layer][filter] = MNISTNetworkTools.createRandomArray(KERNELSIZE, KERNELSIZE, KERNAL_MIN_VAL, KERNAL_MAX_VAL);
             }
@@ -49,15 +64,30 @@ public class MNISTNetwork {
                 for (int i = 0; i < NUM_CONV_LAYERS; i++) {
                     outputSize *= NETWORK_SIZES[i];
                 }
+
+                this.NEURONS_VALUE[layer] = new double[outputSize];
+
                 this.NEURONS[layer] = MNISTNetworkTools.createRandomArray(NETWORK_SIZES[NUM_CONV_LAYERS+layer], outputSize, NEURON_MIN_VAL, NEURON_MAX_VAL);
                 this.BIAS[layer] = MNISTNetworkTools.createRandomArray(NETWORK_SIZES[NUM_CONV_LAYERS+layer], NEURON_MIN_VAL, NEURON_MAX_VAL);
+
+                this.NEURONS_CHANGE[layer] = new double[outputSize][NETWORK_SIZES[NUM_CONV_LAYERS+layer]];
+                this.BIAS_CHANGE[layer] = new double[NETWORK_SIZES[NUM_CONV_LAYERS+layer]];
             } else if (layer == NUM_DENSE_LAYERS) {
                 // matrix needs to map to the desired output (vector size 10)
                 this.NEURONS[layer] = MNISTNetworkTools.createRandomArray(10, NETWORK_SIZES[NUM_CONV_LAYERS+layer-1], NEURON_MIN_VAL, NEURON_MAX_VAL);
                 this.BIAS[layer] = MNISTNetworkTools.createRandomArray(10, NEURON_MIN_VAL, NEURON_MAX_VAL);
+
+                this.NEURONS_CHANGE[layer] = new double[NETWORK_SIZES[NUM_CONV_LAYERS+layer-1]][10];
+                this.BIAS_CHANGE[layer] = new double[10];
             } else {
+
+                this.NEURONS_VALUE[layer] = new double[NETWORK_SIZES[NUM_CONV_LAYERS+layer]];
+
                 this.BIAS[layer] = MNISTNetworkTools.createRandomArray(NETWORK_SIZES[NUM_CONV_LAYERS+layer], NEURON_MIN_VAL, NEURON_MAX_VAL);
                 this.NEURONS[layer] = MNISTNetworkTools.createRandomArray(NETWORK_SIZES[NUM_CONV_LAYERS+layer],NETWORK_SIZES[NUM_CONV_LAYERS+layer-1], NEURON_MIN_VAL, NEURON_MAX_VAL);
+
+                this.NEURONS_CHANGE[layer] = new double[NETWORK_SIZES[NUM_CONV_LAYERS+layer-1]][NETWORK_SIZES[NUM_CONV_LAYERS+layer]];
+                this.BIAS_CHANGE[layer] = new double[NETWORK_SIZES[NUM_CONV_LAYERS+layer]];
             }
         }
     }
@@ -97,6 +127,9 @@ public class MNISTNetwork {
                 // iterate through each batch, loop number of times
                 for (int loop = 0; loop < LOOPS; loop++) {
                     batch = shuffleArray(batch);
+
+//                    double[][] weigth averages = 0.03; average for the batch
+
                     // individually go through each image in the batch
                     for (int index = 0; index < BATCH_SIZE; index++) {
                         MNISTImage image = set.getImage(batch[index]);
@@ -116,14 +149,20 @@ public class MNISTNetwork {
                             poolOutput = pool(convOutput);
                         }
 
+
+
                         // go to the fully connected layer
                         double[] neurons = flatten(poolOutput);
+//                        this.NEURONS_VALUE[0] = neurons;
+                        this.CONV_OUTPUT_DIMENSIONS = getDimensions(poolOutput);
 
+
+                        // go to the dense layers
                         for (int layer = 0; layer < NUM_DENSE_LAYERS+1; layer++) {
+                            this.NEURONS_VALUE[layer] = neurons;
                             neurons = fullyconnected(neurons, NEURONS[layer], BIAS[layer]);
                         }
-                        neurons = sigmoid(neurons);
-                        // or maybe find a way of saying
+
                         /*
                             Say the max is worth 12321333 (big number) for digit 0
                             maybe check the loss function by saying ok the goal should have been
@@ -131,13 +170,129 @@ public class MNISTNetwork {
                             instead of making neurons [1,0,0,0,0,0,0,0]
                         */
 
-//                        int result = maxValue(neurons);
+                        // normalize the values
+                        neurons = softMax(neurons);
 
+                        int result = maxValue(neurons);
+                        int expectation = image.getLabel();
+
+                        // should change the weight matricies
+                        backpropogation(image.getLabel(), neurons);
 
                     }
                 }
             }
         }
+    }
+
+    private void backpropogation(int value, double[] output){
+
+                // get error gradient
+        // iterate backwards through the layers
+            // softmax
+            // Dense layers
+                // Biases
+                // Fully connected
+                //
+            // flattening
+            // pooling + convolution layers
+
+
+//        // cross entropy error function
+//        double cost = crossEntropyError(value, output);
+
+        // gradient[] of softmax function
+        double[] gradient = backCrossSoft(value, output);
+
+        // now we need gradient of the following dense layers...
+        for (int layer = NUM_DENSE_LAYERS; layer >= 0; layer--) {
+            double[] newGradient = new double[NEURONS[layer][0].length];
+            // iterating through the gradients
+            for (int j = 0; j < NEURONS[layer].length; j++) {
+                for (int i= 0; i < NEURONS[layer][j].length; i++) {
+                    NEURONS_CHANGE[layer][i][j] = gradient[j]*NEURONS_VALUE[layer][i];
+                    newGradient[i] += NEURONS[layer][j][i]*gradient[j];
+                }
+                BIAS_CHANGE[layer][j] = gradient[j];
+            }
+            gradient = newGradient;
+        }
+
+        // reshape the gradient to match matrix out put at the end of the conv layers.
+        double[][][] conv_gradient = new double[CONV_OUTPUT_DIMENSIONS[0]][CONV_OUTPUT_DIMENSIONS[1]][CONV_OUTPUT_DIMENSIONS[2]];
+        conv_gradient = reshape(gradient, conv_gradient);
+
+
+
+// https://ai.stackexchange.com/questions/11643/how-should-i-implement-the-backward-pass-through-a-flatten-layer-of-a-cnn
+        }
+
+    private double[][][] reshape(double[] inputMatrix, double[][][] outputMatrix){
+        for (int i = 0; i < outputMatrix.length; i++) {
+            for (int j = 0; j < outputMatrix[i].length; j++) {
+                for (int k = 0; k < outputMatrix[i][j].length; k++) {
+                    outputMatrix[i][j][k] = inputMatrix[i*outputMatrix[i].length+j*outputMatrix[i][j].length+k];
+                }
+            }
+        }
+        return outputMatrix;
+    }
+
+    private int[] getDimensions(double[][][] matrix){
+        return new int[]{matrix.length, matrix[0].length, matrix[0][0].length};
+    }
+
+    public double[] backCrossSoft(int value, double[] output){
+        double[] derivative = new double[10];
+
+        for (int i = 0; i < 10; i++) {
+            if (i == value) {
+                derivative[i] = output[i] - 1;
+            } else {
+                derivative[i] = output[i];
+            }
+        }
+        return derivative;
+    }
+
+    public double crossEntropyError(int value, double[] output){
+        return -Math.log(output[value]);
+    }
+
+    private double costMSE(int value, double[] output){
+        double[] expectation = new double[10];
+        expectation[value] = 1.0;
+
+        double sum = 0;
+
+        for (int i = 0; i < 10; i++) {
+            sum += Math.pow(expectation[i] - output[i],2);
+        }
+
+        return sum;
+    }
+
+    private double[] softMax(double[] neuronValues){
+        double[] newNeurons = new double[neuronValues.length];
+//        neuronValues = normalize(neuronValues);
+        double total = Arrays.stream(neuronValues).map(Math::exp).sum();
+        for (int i = 0; i < neuronValues.length; i++) {
+            newNeurons[i] = Math.exp(neuronValues[i])/total;
+        }
+        return newNeurons;
+    }
+
+    private double[] normalize(double[] vector){
+        double max = 0;
+        for (int i = 0; i < vector.length; i++) {
+            if (max < vector[i]){
+                max = vector[i];
+            }
+        }
+        for (int i = 0; i < vector.length; i++) {
+            vector[i] /= max/2;
+        }
+        return vector;
     }
 
     private int maxValue(double[] vector){
