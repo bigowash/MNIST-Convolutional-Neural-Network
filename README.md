@@ -17,6 +17,8 @@ Additionally, a very important feature of the code was its adaptability with res
 This was, once again, to be able to see what changes affected the efficiency of the code and to what extent.
 The eventual goal was to devise a method to automatically optimize the value of these parameters to optimize the analysis.
 
+Although this was my first try with neural networks, working with a convolutional network also allowed to work with the back propogation of fully-connected layers
+Benefints of CNN -> for large images, less nodes?
 # Implementation
 
 ## Set up
@@ -32,6 +34,7 @@ The first layers correspond to the number of convolutive filters are used per st
 Then the number of fully connected neurons are passed as arguments with the last entry representing the number of dense layers.
 Most of the parameters can be changed with the constants file.
 
+NEED TO BE CAREFUL OF FUNCTIONS THAT RETURN A PARAMETER. THEY DO WEIRD THINGS IN JAVA
 
 ## Training : Convolution
 
@@ -41,8 +44,11 @@ Most of the parameters can be changed with the constants file.
 
 ## Training : Backward Propagation
 
-## Testing of Network
+of maxpooling :
+https://datascience.stackexchange.com/a/14235
 
+## Testing of Network
+    
 ## Visualisation of Network
 
 As the aim of this project was to understand the steps needed to be taken for a neural network. 

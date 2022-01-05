@@ -34,6 +34,17 @@ public class MNISTNetworkTools {
         return ar;
     }
 
+    public static double[][][] createRandomArray(int height, int sizeX, int sizeY, double lower_bound, double upper_bound){
+        if(sizeX < 1 || sizeY < 1 || height < 1){
+            return null;
+        }
+        double[][][] ar = new double[height][sizeX][sizeY];
+        for(int i = 0; i < height; i++){
+            ar[i] = createRandomArray(sizeX, sizeY, lower_bound, upper_bound);
+        }
+        return ar;
+    }
+
     public static double randomValue(double lower_bound, double upper_bound){
         return Math.random()*(upper_bound-lower_bound) + lower_bound;
     }
