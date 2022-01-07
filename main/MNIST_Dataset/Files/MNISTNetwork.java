@@ -29,6 +29,16 @@ public class MNISTNetwork {
 
     public double[][] IMAGE;
 
+    public double[][][][][] CHANGE_RECORD_CONV = new double[BATCH_SIZE][][][][];
+    public double[][][][][] CHANGE_RECORD_CONV_BIAS = new double[BATCH_SIZE][][][][];
+    public double[][][][] CHANGE_RECORD_FC = new double[BATCH_SIZE][][][];
+    public double[][][] CHANGE_RECORD_FC_BIAS = new double[BATCH_SIZE][][];
+
+        // Conv filter change
+        // conv bias change
+        // neuron weight change
+        // neuron bias change
+
     public MNISTNetwork(int... NETWORK_SIZES){
 
         this.NETWORK_SIZES = NETWORK_SIZES;
@@ -97,14 +107,14 @@ public class MNISTNetwork {
                 this.NEURONS[layer] = MNISTNetworkTools.createRandomArray(NETWORK_SIZES[NUM_CONV_LAYERS+layer], outputSize, NEURON_MIN_VAL, NEURON_MAX_VAL);
                 this.BIAS[layer] = MNISTNetworkTools.createRandomArray(NETWORK_SIZES[NUM_CONV_LAYERS+layer], NEURON_BIAS_MIN_VAL, NEURON_BIAS_MAX_VAL);
 
-                this.NEURONS_CHANGE[layer] = new double[outputSize][NETWORK_SIZES[NUM_CONV_LAYERS+layer]];
+                this.NEURONS_CHANGE[layer] = new double[NETWORK_SIZES[NUM_CONV_LAYERS+layer]][outputSize];
                 this.BIAS_CHANGE[layer] = new double[NETWORK_SIZES[NUM_CONV_LAYERS+layer]];
             } else if (layer == NUM_DENSE_LAYERS) {
                 // matrix needs to map to the desired output (vector size 10)
                 this.NEURONS[layer] = MNISTNetworkTools.createRandomArray(10, NETWORK_SIZES[NUM_CONV_LAYERS+layer-1], NEURON_MIN_VAL, NEURON_MAX_VAL);
                 this.BIAS[layer] = MNISTNetworkTools.createRandomArray(10, NEURON_MIN_VAL, NEURON_MAX_VAL);
 
-                this.NEURONS_CHANGE[layer] = new double[NETWORK_SIZES[NUM_CONV_LAYERS+layer-1]][10];
+                this.NEURONS_CHANGE[layer] = new double[10][NETWORK_SIZES[NUM_CONV_LAYERS+layer-1]];
                 this.BIAS_CHANGE[layer] = new double[10];
             } else {
 
@@ -113,37 +123,11 @@ public class MNISTNetwork {
                 this.BIAS[layer] = MNISTNetworkTools.createRandomArray(NETWORK_SIZES[NUM_CONV_LAYERS+layer], NEURON_MIN_VAL, NEURON_MAX_VAL);
                 this.NEURONS[layer] = MNISTNetworkTools.createRandomArray(NETWORK_SIZES[NUM_CONV_LAYERS+layer],NETWORK_SIZES[NUM_CONV_LAYERS+layer-1], NEURON_MIN_VAL, NEURON_MAX_VAL);
 
-                this.NEURONS_CHANGE[layer] = new double[NETWORK_SIZES[NUM_CONV_LAYERS+layer-1]][NETWORK_SIZES[NUM_CONV_LAYERS+layer]];
+                this.NEURONS_CHANGE[layer] = new double[NETWORK_SIZES[NUM_CONV_LAYERS+layer]][NETWORK_SIZES[NUM_CONV_LAYERS+layer-1]];
                 this.BIAS_CHANGE[layer] = new double[NETWORK_SIZES[NUM_CONV_LAYERS+layer]];
             }
         }
     }
-
-//    public MNISTNetwork(int... NETWORK_LAYER_SIZES) {
-//        this.NETWORK_LAYER_SIZES = NETWORK_LAYER_SIZES;
-//        this.INPUT_SIZE = NETWORK_LAYER_SIZES[0];
-//        this.NETWORK_SIZE = NETWORK_LAYER_SIZES.length;
-//        this.OUTPUT_SIZE = NETWORK_LAYER_SIZES[NETWORK_SIZE - 1];
-//
-//        this.output = new double[NETWORK_SIZE][];
-//        this.weights = new double[NETWORK_SIZE][][];
-//        this.bias = new double[NETWORK_SIZE][];
-//
-//        this.error_signal = new double[NETWORK_SIZE][];
-//        this.output_derivative = new double[NETWORK_SIZE][];
-//
-//        for (int i = 0; i < NETWORK_SIZE; i++) {
-//            this.output[i] = new double[NETWORK_LAYER_SIZES[i]];
-//            this.error_signal[i] = new double[NETWORK_LAYER_SIZES[i]];
-//            this.output_derivative[i] = new double[NETWORK_LAYER_SIZES[i]];
-//
-//            this.bias[i] = MNISTNetworkTools.createRandomArray(NETWORK_LAYER_SIZES[i], -0.5, 0.7);
-//
-//            if (i > 0) {
-//                weights[i] = MNISTNetworkTools.createRandomArray(NETWORK_LAYER_SIZES[i], NETWORK_LAYER_SIZES[i - 1], -1, 1);
-//            }
-//        }
-//    }
 
     private int outputConvDimensions(int input_volume, int kernel_size){
         return (input_volume-kernel_size+2*PADDING)/CONVSTRIDE + 1;
@@ -163,10 +147,9 @@ public class MNISTNetwork {
                 for (int loop = 0; loop < LOOPS; loop++) {
                     batch = shuffleArray(batch);
 
-//                    double[][] weigth averages = 0.03; average for the batch
-
                     // individually go through each image in the batch
                     for (int index = 0; index < BATCH_SIZE; index++) {
+
                         MNISTImage image = set.getImage(batch[index]);
                         IMAGE = image.imageDouble();
 
@@ -229,18 +212,149 @@ public class MNISTNetwork {
                         int result = maxValue(neurons);
                         int expectation = image.getLabel();
 
+                        resetChanges();
+
                         // should change the weight matricies
                         backpropogation(image.getLabel(), neurons);
 
+                        CHANGE_RECORD_CONV[index] = copy(FILTERS_CHANGE);
+                        CHANGE_RECORD_CONV_BIAS[index] = copy(CONV_BIAS_CHANGE);
+                        CHANGE_RECORD_FC[index] = copy(NEURONS_CHANGE);
+                        CHANGE_RECORD_FC_BIAS[index] = copy(BIAS_CHANGE);
+
                     }
+
+                    applyChanges();
+
                 }
             }
         }
     }
 
+    private void applyChanges(){
+        double sumC1 = 0;
+        double sumC2 = 0;
+        double sumFC1 = 0;
+        double sumFC2 = 0;
+
+        // conv filters change
+        for (int layer = 0; layer < FILTERS.length; layer++) {
+            for (int filter = 0; filter < FILTERS[layer].length; filter++) {
+                for (int i = 0; i < FILTERS[layer][filter].length; i++) {
+                    for (int j = 0; j < FILTERS[layer][filter][i].length; j++) {
+                        for (int image = 0; image < BATCH_SIZE; image++) {
+                            sumC1 += CHANGE_RECORD_CONV[image][layer][filter][i][j];
+                        }
+                        FILTERS[layer][filter][i][j] += (sumC1/BATCH_SIZE)*LEARNINGRATE;
+                        sumC1 = 0;
+                    }
+                }
+            }
+        }
+
+        // conv bias change
+        for (int layer = 0; layer < CONV_BIAS.length; layer++) {
+            for (int filter = 0; filter < CONV_BIAS[layer].length; filter++) {
+                for (int i = 0; i < CONV_BIAS[layer][filter].length; i++) {
+                    for (int j = 0; j < CONV_BIAS[layer][filter][i].length; j++) {
+                        for (int image = 0; image < BATCH_SIZE; image++) {
+                            sumC2 += CHANGE_RECORD_CONV_BIAS[image][layer][filter][i][j];
+                        }
+                        CONV_BIAS[layer][filter][i][j] += (sumC2/BATCH_SIZE)*LEARNINGRATE;
+                        sumC2 = 0;
+                    }
+                }
+            }
+        }
+
+            // fc weights change
+        for (int layer = 0; layer < NEURONS.length; layer++) {
+            for (int i = 0; i < NEURONS[layer].length; i++) {
+                for (int j = 0; j < NEURONS[layer][i].length; j++) {
+                    for (int image = 0; image < BATCH_SIZE; image++) {
+                        sumFC1 += CHANGE_RECORD_FC[image][layer][i][j];
+                    }
+                    NEURONS[layer][i][j] += (sumFC1/BATCH_SIZE)*LEARNINGRATE;
+                    sumFC1 = 0;
+                }
+            }
+        }
+
+        // fc bias change
+        for (int layer = 0; layer < BIAS.length; layer++) {
+            for (int i = 0; i < BIAS[layer].length; i++) {
+                for (int image = 0; image < BATCH_SIZE; image++) {
+                    sumFC2 += CHANGE_RECORD_FC_BIAS[image][layer][i];
+                }
+                BIAS[layer][i] += (sumFC2/BATCH_SIZE)*LEARNINGRATE;
+                sumFC2 = 0;
+            }
+        }
+
+    }
+
+    private void resetChanges(){
+        this.FILTERS_CHANGE = new double[FILTERS.length][][][];
+        for (int i = 0; i < FILTERS.length; i++) {
+            this.FILTERS_CHANGE[i] = new double[FILTERS[i].length][][];
+            for (int j = 0; j < FILTERS[i].length; j++) {
+                this.FILTERS_CHANGE[i][j] = new double[FILTERS[i][j].length][];
+                for (int k = 0; k < FILTERS[i][j].length; k++) {
+                    this.FILTERS_CHANGE[i][j][k] = new double[FILTERS[i][j][k].length];
+                }
+            }
+        }
+        this.CONV_BIAS_CHANGE = new double[CONV_BIAS.length][][][];
+        for (int i = 0; i < CONV_BIAS.length; i++) {
+            this.CONV_BIAS_CHANGE[i] = new double[CONV_BIAS[i].length][][];
+            for (int j = 0; j < CONV_BIAS[i].length; j++) {
+                this.CONV_BIAS_CHANGE[i][j] = new double[CONV_BIAS[i][j].length][];
+                for (int k = 0; k < CONV_BIAS[i][j].length; k++) {
+                    this.CONV_BIAS_CHANGE[i][j][k] = new double[CONV_BIAS[i][j][k].length];
+                }
+            }
+        }
+        this.NEURONS_CHANGE = new double[NEURONS.length][][];
+        for (int i = 0; i < NEURONS.length; i++) {
+            this.NEURONS_CHANGE[i] = new double[NEURONS[i].length][];
+            for (int j = 0; j < NEURONS[i].length; j++) {
+                this.NEURONS_CHANGE[i][j] = new double[NEURONS[i][j].length];
+            }
+        }
+        this.BIAS_CHANGE = new double[BIAS.length][];
+        for (int i = 0; i < BIAS.length; i++) {
+            this.BIAS_CHANGE[i] = new double[BIAS[i].length];
+        }
+    }
+
+    public double[][][][] copy(double[][][][] input){
+        double[][][][] output = new double[input.length][input[0].length][input[0][0].length][input[0][0][0].length];
+        for (int i = 0; i < input.length; i++) {
+            output[i] = copy(input[i]);
+        }
+        return output;
+    }
+
+    public double[][][] copy(double[][][] input){
+        double[][][] output = new double[input.length][input[0].length][input[0][0].length];
+        for (int i = 0; i < input.length; i++) {
+            output[i] = copy(input[i]);
+        }
+        return output;
+    }
+
+    public double[][] copy(double[][] input){
+        double[][] output = new double[input.length][input[0].length];
+        for (int i = 0; i < input.length; i++) {
+            output[i] = Arrays.copyOf(input[i], input[i].length);
+        }
+        return output;
+    }
+
     private void backpropogation(int value, double[] output){
 
-                // get error gradient
+        // https://ai.stackexchange.com/questions/11643/how-should-i-implement-the-backward-pass-through-a-flatten-layer-of-a-cnn
+
         // iterate backwards through the layers
             // softmax
             // Dense layers
@@ -250,11 +364,7 @@ public class MNISTNetwork {
             // flattening
             // pooling + convolution layers
 
-
-//        // cross entropy error function
-//        double cost = crossEntropyError(value, output);
-
-        // gradient[] of softmax function
+        // gradient of softmax function
         double[] gradient = backCrossSoft(value, output);
 
         // Dense layer gradients
@@ -263,7 +373,7 @@ public class MNISTNetwork {
             // iterating through the gradients
             for (int j = 0; j < NEURONS[layer].length; j++) {
                 for (int i= 0; i < NEURONS[layer][j].length; i++) {
-                    NEURONS_CHANGE[layer][i][j] = gradient[j]*NEURONS_VALUE[layer][i];
+                    NEURONS_CHANGE[layer][j][i] = gradient[j]*NEURONS_VALUE[layer][i];
                     newGradient[i] += NEURONS[layer][j][i]*gradient[j];
                 }
                 BIAS_CHANGE[layer][j] = gradient[j];
@@ -290,13 +400,28 @@ public class MNISTNetwork {
                 }
             }
 
+            double[][][] tempGrad = new double[0][][];
+
+            try {
+                tempGrad = new double[NETWORK_SIZES[layer-1]][CONV_OUTPUT_DIMENSIONS[layer-1][1][1]][CONV_OUTPUT_DIMENSIONS[layer-1][1][2]];
+            } catch (ArrayIndexOutOfBoundsException ignored) {
+                ;
+            }
+
             // reversing the convolution
             for (int filter = 0; filter < NETWORK_SIZES[layer]; filter++) {
 
+                // get bias change
                 this.CONV_BIAS_CHANGE[layer] = conv_gradient;
 
 //                CONV_OUTPUTS[layer][filter] >>>>>>>> double[][] (inputs)
+
+
+                // get filters/weights change
                 if (layer >= 1) {
+
+//                    double[][][] tempGrad = new double[NETWORK_SIZES[layer-1]][CONV_OUTPUT_DIMENSIONS[layer-1][1][1]][CONV_OUTPUT_DIMENSIONS[layer-1][1][2]];
+
                     for (int og_output = 0; og_output < NETWORK_SIZES[layer-1]; og_output++) {
 //                        conv_gradient[filter*NETWORK_SIZES[layer-1]+og_output];
 //                        for (int subRow = 0; subRow < this.FILTERS_CHANGE[layer][filter].length; subRow++) {
@@ -309,7 +434,14 @@ public class MNISTNetwork {
                         double[][] kernelA = conv_gradient[filter*NETWORK_SIZES[layer-1]+og_output];
 
                         this.FILTERS_CHANGE[layer][filter] = addMatricies(convolve(matrixA, kernelA), FILTERS_CHANGE[layer][filter]);
+
+                        double[][] temp = fullCrossCorrelation(conv_gradient[filter*NETWORK_SIZES[layer-1]+og_output], FILTERS[layer][filter]);
+
+                        tempGrad[og_output] = addMatricies(temp, tempGrad[og_output]);
+
                     }
+
+
                 }
 
                 else {
@@ -324,9 +456,10 @@ public class MNISTNetwork {
                 }
 
                 // finding gradient with respect to inputs
-                double[][][] temp = fullCrossCorrelation(conv_gradient[layer], FILTERS[layer][filter]);
 
             }
+
+            conv_gradient = tempGrad;
 
 
 
@@ -335,7 +468,6 @@ public class MNISTNetwork {
 //            CONV_OUTPUTS[layer]
 
         }
-// https://ai.stackexchange.com/questions/11643/how-should-i-implement-the-backward-pass-through-a-flatten-layer-of-a-cnn
     }
 
 //    private double[][][] backConvolution(double[][][] matrix, double[][][] filters){
@@ -350,13 +482,52 @@ public class MNISTNetwork {
 
 //    private int[] backPoolToConv(int index, )
 
-    private double[][][] fullCrossCorrelation(double[][] outputGradient, double[][] kernel){
+    private double[][] fullCrossCorrelation(double[][] outputGradient, double[][] kernel){
+
+        double[][] rotatedKernel = new double[kernel.length][kernel[0].length];
+        for (int i = 0; i < 3; i++) {
+            rotatedKernel[i] = Arrays.copyOf(kernel[i], kernel[i].length);
+        }
+
+//        double[][] rotatedKernel = kernel;
         // rotate kernel
-        rotateMatrix(kernel);
+        rotateMatrix(rotatedKernel);
+
+        // perform full cross correlation with rotated kernel
+        //padding will be the length of kernel-1
+        int padding = kernel.length-1;
+
+        // adding padding to the image
+        double[][] paddedOutputGradient = new double[outputGradient.length+2*padding][outputGradient[0].length+2*padding];
+        for (int row = 0; row < paddedOutputGradient.length; row++) {
+            if (row >= padding && row < paddedOutputGradient.length - padding) {
+                for (int col = 0; col < paddedOutputGradient[0].length; col++) {
+                   if (col >= padding && col < paddedOutputGradient[0].length - padding){
+                       paddedOutputGradient[row][col] = outputGradient[row-padding][col-padding];
+                   }
+                }
+            }
+        }
+
+        int kHeight = kernel.length;
+        int kWidth = kernel[0].length;
+
+        int newRow = subVectorSize(paddedOutputGradient.length,kHeight,1);
+        int newCol = subVectorSize(paddedOutputGradient[0].length,kWidth,1);
+
+        double[][] newMatrix = new double[newCol][newRow];
+
+        for (int row = 0; row < newRow ; row++) {
+            for (int col = 0; col < newCol; col++) {
+                double[][] subMatrix = subMatrixTop(paddedOutputGradient, row, col, kernel.length);
+
+                // need to apply the kernel to the subMatrix
+                newMatrix[row][col] = applyKernel(subMatrix, rotatedKernel);
+            }
+        }
 
 
-
-//        return new double[0][][];
+        return newMatrix;
     }
 
     public static void rotateMatrix(double[][] mat) {
